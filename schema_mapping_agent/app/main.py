@@ -15,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.llm_mapper import LLMSchemaMapper, SchemaMappingResult
@@ -116,10 +117,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Serve static UI
+_static_path = Path(__file__).parent.parent / "static"
+if _static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_path)), name="static")
+
 # Initialize components
 storage_manager = StorageManager(base_storage_path=os.getenv("STORAGE_PATH", "./storage"))
 
-# Initialize LLM mapper (will fail if ANTHROPIC_API_KEY not set)
+# Initialize LLM mapper (will fail if GROQ_API_KEY not set)
 llm_mapper: Optional[LLMSchemaMapper] = None
 
 try:
@@ -135,7 +141,10 @@ except ValueError as e:
 
 @app.get("/")
 async def root():
-    """Health check endpoint."""
+    """Serve the interactive UI."""
+    ui_path = Path(__file__).parent.parent / "static" / "index.html"
+    if ui_path.exists():
+        return FileResponse(str(ui_path))
     return {
         "status": "ok",
         "service": "Schema Mapping Agent API",
